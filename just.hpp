@@ -2,7 +2,7 @@
 
 #include <utility>
 #include "detail/type_list.hpp"
-#include "sender_traits.hpp"
+#include "traits.hpp"
 
 
 template<class T>

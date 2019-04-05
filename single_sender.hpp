@@ -4,22 +4,31 @@
 #include <type_traits>
 #include <cassert>
 #include "detail/type_list.hpp"
-#include "sender_traits.hpp"
+#include "traits.hpp"
 
 namespace detail
 {
 
+
 template<class Function, class Receiver>
-__global__ void cuda_task_kernel(Function f, Receiver r)
+struct set_value_functor
 {
-  r.set_value(f());
-}
+  mutable Function f;
+  mutable Receiver r;
+
+  __host__ __device__
+  void operator()() const
+  {
+    r.set_value(f());
+  }
+};
+
 
 } // end detail
 
 
-template<class Function>
-class cuda_task
+template<class Function, class Executor>
+class single_sender
 {
   public:
     using sender_concept = sender_tag;
@@ -31,23 +40,17 @@ class cuda_task
                std::is_constructible<Function,OtherFunction&&>::value
              >>
     __host__ __device__
-    cuda_task(OtherFunction&& function)
-      : function_(std::forward<OtherFunction>(function))
+    single_sender(OtherFunction&& function, const Executor& executor)
+      : function_(std::forward<OtherFunction>(function)),
+        executor_(executor)
     {}
 
     template<class Receiver>
     __host__ __device__
-    void submit(Receiver r) &&
+    void submit(Receiver r) const
     {
-      auto* kernel_ptr = &detail::cuda_task_kernel<Function,Receiver>;
-      silence_unused_variable_warning(kernel_ptr);
-
-#if !defined(__CUDA_ARCH__) || (__CUDA_ARCH__ >= 350)
-      kernel_ptr<<<1,1>>>(function_, r);
-#else
-      printf("cuda_task::submit: Unimplemented.\n");
-      assert(0);
-#endif
+      detail::set_value_functor<Function, Receiver> f{function_, r};
+      executor_.execute(f);
     }
 
     __host__ __device__
@@ -57,10 +60,7 @@ class cuda_task
     }
     
   private:
-    template<class T>
-    __host__ __device__
-    inline void silence_unused_variable_warning(T&&) {}
-
     Function function_;
+    Executor executor_;
 };
 

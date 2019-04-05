@@ -1,7 +1,7 @@
 #pragma once
 
 #include "just.hpp"
-#include "cuda_task.hpp"
+#include "single_sender.hpp"
 
 namespace detail
 {
@@ -39,7 +39,15 @@ struct bind
 };
 
 
+template<class Function>
+__global__ void single_kernel(Function f)
+{
+  f();
+}
+
+
 } // end detail
+
 
 class cuda_executor
 {
@@ -53,19 +61,41 @@ class cuda_executor
     // XXX is there an easy way to have a single, generic
     // make_value_task rather than these two overloads?
 
-    template<class G, class F>
+    template<class G, class F, class OtherExecutor>
     __host__ __device__
-    cuda_task<detail::compose<F, G>> make_value_task(cuda_task<G> predecessor, F f)
+    single_sender<detail::compose<F, G>, cuda_executor> make_value_task(single_sender<G,OtherExecutor> predecessor, F f)
     {
-      return {f, predecessor.function()};
+      // XXX what happens to the OtherExecutor?
+      detail::compose<F,G> g{f, predecessor.function()};
+      return {g, *this};
     }
 
     template<class T, class F>
     __host__ __device__
-    cuda_task<detail::bind<F, T>> make_value_task(just<T> predecessor, F f)
+    single_sender<detail::bind<F,T>, cuda_executor> make_value_task(just<T> predecessor, F f)
     {
       detail::bind<F,T> g{f, std::move(predecessor).value()};
-      return {g};
+      return {g, *this};
     }
+
+    template<class Function>
+    __host__ __device__
+    void execute(Function f) const
+    {
+      auto* kernel_ptr = &detail::single_kernel<Function>;
+      silence_unused_variable_warning(kernel_ptr);
+
+#if !defined(__CUDA_ARCH__) || (__CUDA_ARCH__ >= 350)
+      kernel_ptr<<<1,1>>>(f);
+#else
+      printf("cuda_executor::execute: Unimplemented.\n");
+      assert(0);
+#endif
+    }
+
+  private:
+    template<class T>
+    __host__ __device__
+    inline static void silence_unused_variable_warning(T&&) {}
 };
 
