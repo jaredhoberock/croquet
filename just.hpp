@@ -5,6 +5,26 @@
 #include "traits.hpp"
 
 
+namespace detail
+{
+
+
+template<class T>
+struct return_value
+{
+  __host__ __device__
+  T operator()() const
+  {
+    return value;
+  }
+
+  T value;
+};
+
+
+} // end detail
+
+
 template<class T>
 class just
 {
@@ -53,6 +73,12 @@ class just
     T&& value() &&
     {
       return std::move(value_);
+    }
+
+    __host__ __device__
+    detail::return_value<T> function() const
+    {
+      return {value_};
     }
 
   private:

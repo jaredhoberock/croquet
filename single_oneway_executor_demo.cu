@@ -1,7 +1,7 @@
-// $ nvcc --expt-extended-lambda -std=c++14 demo.cu
-#include "cuda_executor.hpp"
+// $ nvcc --expt-extended-lambda -std=c++14 -I../agency-tot single_oneway_executor_demo.cu
 #include <iostream>
 #include <typeinfo>
+#include "single_executor.hpp"
 
 struct my_receiver
 {
@@ -19,13 +19,13 @@ struct my_receiver
 
 int main()
 {
-  cuda_executor ex;
+  single_oneway_executor ex;
 
-  just<cuda_executor> s1 = ex.schedule();
+  just<single_oneway_executor> s1 = ex.schedule();
 
   s1.submit(my_receiver());
 
-  auto s2 = ex.make_value_task(std::move(s1), [] __device__ (cuda_executor)
+  auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (single_oneway_executor)
   {
     printf("Hello world from value task\n");
     return 0;
@@ -33,7 +33,10 @@ int main()
 
   std::move(s2).submit(my_receiver());
 
-  cudaDeviceSynchronize();
+  if(cudaError_t error = cudaDeviceSynchronize())
+  {
+    throw std::runtime_error("CUDA error after cudaDeviceSynchronize: " + std::string(cudaGetErrorString(error)));
+  }
 
   return 0; 
 }
