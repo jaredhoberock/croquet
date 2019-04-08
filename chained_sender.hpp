@@ -10,9 +10,8 @@
 #include "executable.hpp"
 
 
-// XXX call this chaining_sender or something
 template<class Executor, class Function, class Predecessor>
-class twoway_single_sender
+class chained_sender
 {
   private:
     // XXX use sender_value_type_t
@@ -26,7 +25,7 @@ class twoway_single_sender
     using error_type = void;
 
     __host__ __device__
-    twoway_single_sender(const Executor& executor, Function function, Predecessor predecessor)
+    chained_sender(const Executor& executor, Function function, Predecessor predecessor)
       : executor_(executor),
         function_(function),
         predecessor_(std::move(predecessor))
@@ -62,8 +61,8 @@ class twoway_single_sender
 
 template<class Executor, class Function, class Predecessor>
 __host__ __device__
-twoway_single_sender<Executor, Function, Predecessor>
-  make_twoway_single_sender(const Executor& executor, Function f, Predecessor predecessor)
+chained_sender<Executor, Function, Predecessor>
+  make_chained_sender(const Executor& executor, Function f, Predecessor predecessor)
 {
   return {executor, f, std::move(predecessor)};
 }

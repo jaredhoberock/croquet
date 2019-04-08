@@ -9,9 +9,8 @@
 #include "executable.hpp"
 
 
-// XXX call this fusing_sender or something
 template<class Function, class Executor>
-class single_sender
+class fused_sender
 {
   public:
     using sender_concept = sender_tag;
@@ -19,7 +18,7 @@ class single_sender
     using error_type = void;
 
     __host__ __device__
-    single_sender(Function function, const Executor& executor)
+    fused_sender(Function function, const Executor& executor)
       : function_(function),
         executor_(executor)
     {}
@@ -46,8 +45,8 @@ class single_sender
 
 template<class Function, class Executor>
 __host__ __device__
-single_sender<std::decay_t<Function>,Executor>
-  make_single_sender(Function&& f, const Executor& executor)
+fused_sender<std::decay_t<Function>,Executor>
+  make_fused_sender(Function&& f, const Executor& executor)
 {
   return {std::forward<Function>(f), executor};
 }

@@ -4,8 +4,8 @@
 #include <agency/cuda/execution/executor/grid_executor.hpp>
 #include <agency/async.hpp>
 #include "just.hpp"
-#include "single_sender.hpp"
-#include "single_twoway_sender.hpp"
+#include "fused_sender.hpp"
+#include "chained_sender.hpp"
 
 
 namespace detail
@@ -56,12 +56,14 @@ class single_oneway_executor
       agency::async(ex, f);
     }
 
+    // XXX if we put the predecessor & successor functions in the
+    //     fused_sender's ctor, the name would make more sense
     template<class Sender, class Function>
     __host__ __device__
     auto make_value_task(Sender predecessor, Function f) const
     {
       auto g = detail::compose(f, std::move(predecessor).function());
-      return make_single_sender(std::move(g), *this);
+      return make_fused_sender(std::move(g), *this);
     }
 };
 
@@ -116,7 +118,7 @@ class single_twoway_executor
     __host__ __device__
     auto make_value_task(Sender predecessor, twoway_function<Function> f) const
     {
-      return make_twoway_single_sender(*this, f.f, std::move(predecessor));
+      return make_chained_sender(*this, f.f, std::move(predecessor));
     }
 };
 
