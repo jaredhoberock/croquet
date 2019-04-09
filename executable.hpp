@@ -2,23 +2,13 @@
 
 #include <utility>
 #include <type_traits>
+#include "detail/static_const.hpp"
 
 
 namespace op
 {
 namespace detail
 {
-
-
-template<class T>
-struct static_const
-{
-  static constexpr T value{};
-};
-
-// provide the definition of static_const<T>::value
-template<class T>
-constexpr T static_const<T>::value;
 
 
 template<class E, class F>
@@ -124,8 +114,8 @@ namespace
 
 // define the CPOs
 #ifndef __CUDA_ARCH__
-constexpr auto const& make_executable = detail::static_const<detail::make_executable_customization_point>::value;
-constexpr auto const& make_dependent_executable = detail::static_const<detail::make_dependent_executable_customization_point>::value;
+constexpr auto const& make_executable = ::detail::static_const<detail::make_executable_customization_point>::value;
+constexpr auto const& make_dependent_executable = ::detail::static_const<detail::make_dependent_executable_customization_point>::value;
 #else
 // CUDA __device__ functions cannot access global variables so make the CPOs __device__ variable in __device__ code
 const __device__ detail::make_executable_customization_point make_executable;
