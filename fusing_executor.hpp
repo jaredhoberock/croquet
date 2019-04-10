@@ -52,6 +52,7 @@ class fusing_executor
     __host__ __device__
     just<fusing_executor> schedule() const
     {
+      // XXX what if SingleExecutor customizes schedule()?
       // XXX how should an adaptor implement schedule?
       return {*this};
     }
@@ -68,7 +69,9 @@ class fusing_executor
     __host__ __device__
     auto make_value_task(Sender predecessor, Function f) const
     {
-      // XXX need to do this composition with a receiver instead of by grabbing the function
+      // XXX in general we can't ask a Sender for its function,
+      //     so what is the correct way to do this composition?
+      //     a transform CPO?
       // XXX what happens to predecessor's executor?
       auto g = detail::compose(f, std::move(predecessor).function());
       return make_fused_sender(std::move(g), *this);
