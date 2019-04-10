@@ -32,6 +32,7 @@ class fused_sender
       return executor_.execute(std::move(executable));
     }
 
+    // XXX eliminate this
     __host__ __device__
     Function function() const
     {

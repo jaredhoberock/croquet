@@ -1,7 +1,9 @@
-// $ nvcc --expt-extended-lambda -std=c++14 -I../agency-tot single_oneway_executor_demo.cu
+// $ nvcc --expt-extended-lambda -std=c++14 -I../agency-tot chaining_executor_demo.cu
 #include <iostream>
 #include <typeinfo>
-#include "single_executor.hpp"
+#include <cassert>
+#include "chaining_executor.hpp"
+
 
 struct my_receiver
 {
@@ -10,7 +12,7 @@ struct my_receiver
   void set_value(T arg)
   {
 #ifndef __CUDA_ARCH__
-    std::cout << "receive_executor::set_value: received " << typeid(arg).name() << std::endl;
+    std::cout << "my_receiver::set_value: received " << typeid(arg).name() << std::endl;
 #else
     printf("Hello world from my_receiver\n");
 #endif
@@ -19,13 +21,13 @@ struct my_receiver
 
 int main()
 {
-  single_oneway_executor ex;
+  chaining_executor ex;
 
-  just<single_oneway_executor> s1 = ex.schedule();
+  just<chaining_executor> s1 = ex.schedule();
 
   s1.submit(my_receiver());
 
-  auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (single_oneway_executor)
+  auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (chaining_executor)
   {
     printf("Hello world from value task\n");
     return 0;

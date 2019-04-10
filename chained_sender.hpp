@@ -6,21 +6,25 @@
 #include "detail/type_list.hpp"
 #include "detail/set_value_functor.hpp"
 #include "detail/noop_receiver.hpp"
+#include "make_promise.hpp"
 #include "traits.hpp"
 #include "executable.hpp"
 
-
+// this sender does eager enqueue upon submit before the Predecessor has completed
+// XXX maybe name this eager_chained_sender and we could also implement lazy_chained_sender
 template<class Executor, class Function, class Predecessor>
 class chained_sender
 {
   private:
     // XXX use sender_value_type_t
-    using predecessor_arg_type = detail::first_in_type_list_t<typename Predecessor::value_types>;
+    using predecessor_result_type = detail::first_in_type_list_t<typename Predecessor::value_types>;
 
   public:
     using sender_concept = sender_tag;
     using value_types = detail::type_list<
-      std::result_of_t<Function(predecessor_arg_type)>
+      std::result_of_t<
+        Function(predecessor_result_type)
+      >
     >;
     using error_type = void;
 
@@ -32,20 +36,27 @@ class chained_sender
     {}
 
     template<class Receiver>
-    __host__ __device__
-    auto submit(Receiver r) const
+    void submit(Receiver r) const
     {
-      // need some sort of cuda promise
-      // would need to specialize submit(sender, cuda_promise)
+      // submit the predecessor and get a future
+      auto promise = op::make_promise<predecessor_result_type>(executor_);
+      auto dependency = promise.get_future();
 
-      // XXX need a promise/future pair for executor_
-      //     the receiver would set_value
-      auto dependency = predecessor_.submit(detail::noop_receiver());
-      detail::set_value_functor<Function, Receiver> f{function_, r};
-      auto executable = op::make_dependent_executable(executor_, std::move(f), std::move(dependency));
-      return executor_.execute(std::move(executable));
+      // XXX do this through a CPO
+      // XXX how to ensure this recursion terminates? 
+      predecessor_.submit(std::move(promise));
+
+      // create a sender for the function
+      // XXX do this through a CPO
+      auto submit_me = executor_.make_value_task(std::move(dependency), function_);
+
+      // submit the sender
+      // XXX do this through a CPO
+      // XXX how to ensure this recursion terminates? 
+      submit_me.submit(r);
     }
 
+    // XXX eliminate this
     __host__ __device__
     Function function() const
     {
