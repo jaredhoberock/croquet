@@ -2,9 +2,9 @@
 
 #include <utility>
 #include <type_traits>
-#include <agency/cuda.hpp>
 #include "just.hpp"
 #include "fused_sender.hpp"
+
 
 namespace detail
 {
@@ -37,12 +37,22 @@ composition<std::decay_t<F>, std::decay_t<G>> compose(F&& f, G&& g)
 } // end detail
 
 
+template<class SingleExecutor>
 class fusing_executor
 {
   public:
+    fusing_executor() = default;
+    fusing_executor(const fusing_executor&) = default;
+
+    __host__ __device__
+    fusing_executor(const SingleExecutor& executor)
+      : executor_(executor)
+    {}
+
     __host__ __device__
     just<fusing_executor> schedule() const
     {
+      // XXX how should an adaptor implement schedule?
       return {*this};
     }
 
@@ -50,8 +60,7 @@ class fusing_executor
     __host__ __device__
     void execute(Function f) const
     {
-      agency::cuda::grid_executor ex;
-      agency::async(ex, f);
+      return executor_.execute(std::move(f));
     }
 
     // XXX presumably something like this would be the default implementation of make_value_task
@@ -64,5 +73,15 @@ class fusing_executor
       auto g = detail::compose(f, std::move(predecessor).function());
       return make_fused_sender(std::move(g), *this);
     }
+
+  private:
+    SingleExecutor executor_;
 };
+
+template<class SingleExecutor>
+__host__ __device__
+fusing_executor<SingleExecutor> make_fusing_executor(const SingleExecutor& executor)
+{
+  return {executor};
+}
 

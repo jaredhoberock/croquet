@@ -2,6 +2,7 @@
 #include <iostream>
 #include <typeinfo>
 #include "fusing_executor.hpp"
+#include "cuda/single_executor.hpp"
 
 struct my_receiver
 {
@@ -19,13 +20,13 @@ struct my_receiver
 
 int main()
 {
-  fusing_executor ex;
+  auto ex = make_fusing_executor(cuda::single_executor());
 
-  just<fusing_executor> s1 = ex.schedule();
+  auto s1 = ex.schedule();
 
   s1.submit(my_receiver());
 
-  auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (fusing_executor)
+  auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (fusing_executor<cuda::single_executor> ex)
   {
     printf("Hello world from value task\n");
     return 0;
