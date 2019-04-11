@@ -1,0 +1,3 @@
+[submodule "agency"]
+	path = agency
+	url = https://github.com/agency-library/agency
