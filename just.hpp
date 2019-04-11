@@ -2,6 +2,8 @@
 
 #include <utility>
 #include "traits.hpp"
+#include "inline_executor.hpp"
+#include "detail/set_value_functor.hpp"
 
 
 namespace detail
@@ -11,6 +13,7 @@ namespace detail
 template<class T>
 struct return_value
 {
+  #pragma nv_exec_check_disable
   __host__ __device__
   T operator()() const
   {
@@ -49,26 +52,15 @@ class just
       : value_(std::forward<OtherT>(value))
     {}
 
-    #pragma nv_exec_check_disable
-    template<class Receiver>
-    __host__ __device__
-    void submit(Receiver&& r) &&
-    {
-      // XXX when CPOs are available:
-      // set_value(std::forward<Receiver>(r), std::move(value_));
-
-      std::forward<Receiver>(r).set_value(std::move(value_));
-    }
-
+    // XXX shouldn't this be an rvalue member function?
     #pragma nv_exec_check_disable
     template<class Receiver>
     __host__ __device__
     void submit(Receiver&& r) const &
     {
-      // XXX when CPOs are available:
-      // set_value(std::forward<Receiver>(r), value_);
+      detail::set_value_functor<detail::return_value<T>, std::decay_t<Receiver>> f{function(), std::forward<Receiver>(r)};
 
-      std::forward<Receiver>(r).set_value(value_);
+      executor_.execute(std::move(f));
     }
 
     __host__ __device__
@@ -77,13 +69,21 @@ class just
       return std::move(value_);
     }
 
+    // XXX eliminate this
     __host__ __device__
     detail::return_value<T> function() const
     {
       return {value_};
     }
 
+    __host__ __device__
+    inline_executor executor() const
+    {
+      return executor_;
+    }
+
   private:
     T value_;
+    inline_executor executor_;
 };
 

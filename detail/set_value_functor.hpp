@@ -10,6 +10,7 @@ struct set_value_functor
   mutable Function f;
   mutable Receiver r;
 
+  #pragma nv_exec_check_disable
   __host__ __device__
   void operator()() const
   {
