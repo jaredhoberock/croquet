@@ -1,4 +1,4 @@
-// $ nvcc --expt-extended-lambda -std=c++14 -I../agency-tot chaining_executor_demo.cu
+// $ nvcc --expt-extended-lambda -std=c++14 -I. chaining_executor_demo.cu
 #include <iostream>
 #include <typeinfo>
 #include <cassert>
