@@ -5,7 +5,6 @@
 #include <cassert>
 #include "detail/set_value_functor.hpp"
 #include "traits.hpp"
-#include "executable.hpp"
 
 
 template<class Function, class Executor>
@@ -30,8 +29,7 @@ class fused_sender
     auto submit(Receiver r) const
     {
       detail::set_value_functor<Function, Receiver> f{function_, r};
-      auto executable = op::make_executable(executor_, std::move(f));
-      return executor_.execute(std::move(executable));
+      return executor_.execute(std::move(f));
     }
 
     // XXX eliminate this

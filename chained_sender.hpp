@@ -7,7 +7,7 @@
 #include "make_promise.hpp"
 #include "submit.hpp"
 #include "traits.hpp"
-#include "executable.hpp"
+
 
 // this sender does eager enqueue upon submit before the Predecessor has completed
 // XXX maybe name this eager_chained_sender and we could also implement lazy_chained_sender
