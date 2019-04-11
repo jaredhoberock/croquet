@@ -4,10 +4,37 @@ struct sender_tag {};
 
 struct bulk_sender_tag {};
 
-// the idea is that some Executors may be able to execute types
-// that are not necessarily Invocables, such as Senders or other types (e.g. CUDA Graphs)
-template<class Executor, class Executable>
-struct is_executor_of
+template<class T>
+struct sender_traits
 {
+  template<template<class...> class Variant, template<class...> class Tuple>
+  using value_types = typename T::template value_types<Variant,Tuple>;
 };
+
+
+namespace detail
+{
+
+
+template<class T>
+struct one_value_only { using type = T; };
+
+template<class...>
+struct zero_or_one_value {};
+
+template<>
+struct zero_or_one_value<>{ using type = void; };
+
+template<class T>
+struct zero_or_one_value<T>{ using type = T; };
+
+
+} // end detail
+
+// this implementation is suggested by P1341
+template<class T>
+using sender_value_type_t = 
+  typename sender_traits<T>
+    ::template value_types<detail::one_value_only, detail::zero_or_one_value>
+    ::type::type;
 

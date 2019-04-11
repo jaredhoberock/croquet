@@ -1,7 +1,6 @@
 #pragma once
 
 #include <utility>
-#include "detail/type_list.hpp"
 #include "traits.hpp"
 
 
@@ -30,7 +29,10 @@ class just
 {
   public:
     using sender_concept = sender_tag;
-    using value_types = detail::type_list<T>;
+
+    template<template<class...> class Variant, template<class...> class Tuple>
+    using value_types = Variant<Tuple<T>>;
+
     using error_type = void;
 
     __host__ __device__

@@ -3,6 +3,8 @@
 #include <typeinfo>
 #include <cassert>
 #include "chaining_executor.hpp"
+#include "submit.hpp"
+#include "cuda/single_executor.hpp"
 
 
 struct my_receiver
@@ -21,19 +23,19 @@ struct my_receiver
 
 int main()
 {
-  chaining_executor ex;
+  chaining_executor<cuda::single_executor> ex = make_chaining_executor(cuda::single_executor());
 
-  just<chaining_executor> s1 = ex.schedule();
+  just<chaining_executor<cuda::single_executor>> s1 = ex.schedule();
 
-  s1.submit(my_receiver());
+  op::submit(s1, my_receiver());
 
-  auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (chaining_executor)
+  auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (chaining_executor<cuda::single_executor>)
   {
     printf("Hello world from value task\n");
     return 0;
   });
 
-  std::move(s2).submit(my_receiver());
+  op::submit(std::move(s2), my_receiver());
 
   if(cudaError_t error = cudaDeviceSynchronize())
   {

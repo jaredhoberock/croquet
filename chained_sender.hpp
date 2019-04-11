@@ -3,10 +3,9 @@
 #include <utility>
 #include <type_traits>
 #include <cassert>
-#include "detail/type_list.hpp"
-#include "detail/set_value_functor.hpp"
-#include "detail/noop_receiver.hpp"
+#include "detail/invoke_and_set_value_receiver.hpp"
 #include "make_promise.hpp"
+#include "submit.hpp"
 #include "traits.hpp"
 #include "executable.hpp"
 
@@ -16,16 +15,18 @@ template<class Executor, class Function, class Predecessor>
 class chained_sender
 {
   private:
-    // XXX use sender_value_type_t
-    using predecessor_result_type = detail::first_in_type_list_t<typename Predecessor::value_types>;
+    using predecessor_result_type = sender_value_type_t<Predecessor>;
 
   public:
     using sender_concept = sender_tag;
-    using value_types = detail::type_list<
+
+    template<template<class...> class Variant, template<class...> class Tuple>
+    using value_types = Variant<Tuple<
       std::result_of_t<
         Function(predecessor_result_type)
       >
-    >;
+    >>;
+
     using error_type = void;
 
     __host__ __device__
@@ -38,22 +39,18 @@ class chained_sender
     template<class Receiver>
     void submit(Receiver r) const
     {
-      // submit the predecessor and get a future
+      // create a promise/future pair
       auto promise = op::make_promise<predecessor_result_type>(executor_);
-      auto dependency = promise.get_future();
+      auto successor = promise.get_future();
 
-      // XXX do this through a CPO
-      // XXX how to ensure this recursion terminates? 
-      predecessor_.submit(std::move(promise));
+      // submit the predecessor
+      op::submit(predecessor_, std::move(promise));
 
-      // create a sender for the function
-      // XXX do this through a CPO
-      auto submit_me = executor_.make_value_task(std::move(dependency), function_);
+      // fuse the function and receiver
+      detail::invoke_and_set_value_receiver<Function,Receiver> fused_receiver{function_, std::move(r)};
 
-      // submit the sender
-      // XXX do this through a CPO
-      // XXX how to ensure this recursion terminates? 
-      submit_me.submit(r);
+      // submit the successor
+      op::submit(std::move(successor), std::move(fused_receiver));
     }
 
     // XXX eliminate this

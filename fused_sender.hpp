@@ -3,7 +3,6 @@
 #include <utility>
 #include <type_traits>
 #include <cassert>
-#include "detail/type_list.hpp"
 #include "detail/set_value_functor.hpp"
 #include "traits.hpp"
 #include "executable.hpp"
@@ -14,7 +13,10 @@ class fused_sender
 {
   public:
     using sender_concept = sender_tag;
-    using value_types = detail::type_list<std::result_of_t<Function()>>;
+
+    template<template<class...> class Variant, template<class...> class Tuple> 
+    using value_types = Variant<Tuple<std::result_of_t<Function()>>>;
+
     using error_type = void;
 
     __host__ __device__
@@ -43,6 +45,7 @@ class fused_sender
     Function function_;
     Executor executor_;
 };
+
 
 template<class Function, class Executor>
 __host__ __device__

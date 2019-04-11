@@ -12,7 +12,7 @@ namespace detail
 
 
 template<class E, class T>
-using make_promise_member_t = decltype(std::declval<E&>().template make_promise<T>());
+using make_promise_member_t = decltype(std::declval<E>().template make_promise<T>());
 
 
 template<class E, class T>

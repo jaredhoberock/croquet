@@ -3,6 +3,8 @@
 #include <typeinfo>
 #include "fusing_executor.hpp"
 #include "cuda/single_executor.hpp"
+#include "submit.hpp"
+
 
 struct my_receiver
 {
@@ -24,7 +26,7 @@ int main()
 
   auto s1 = ex.schedule();
 
-  s1.submit(my_receiver());
+  op::submit(s1, my_receiver());
 
   auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (fusing_executor<cuda::single_executor> ex)
   {
@@ -32,7 +34,7 @@ int main()
     return 0;
   });
 
-  std::move(s2).submit(my_receiver());
+  op::submit(std::move(s2), my_receiver());
 
   if(cudaError_t error = cudaDeviceSynchronize())
   {
