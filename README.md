@@ -1,2 +1,2 @@
-# cuda_senders
+# croquet
 Prototype implementation of CUDA Senders
