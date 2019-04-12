@@ -4,6 +4,7 @@
 #include <type_traits>
 #include "just.hpp"
 #include "fused_sender.hpp"
+#include "make_promise.hpp"
 
 
 namespace detail
@@ -75,6 +76,13 @@ class fusing_executor
       // XXX what happens to predecessor's executor?
       auto g = detail::compose(f, std::move(predecessor).function());
       return make_fused_sender(std::move(g), *this);
+    }
+
+    // XXX need a general way to forward to an adapted type's customizations
+    template<class T>
+    auto make_promise() const
+    {
+      return op::make_promise<T>(executor_);
     }
 
   private:

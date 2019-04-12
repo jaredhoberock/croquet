@@ -33,7 +33,7 @@ using has_submit_member = typename has_submit_member_impl<S,R>::type;
 
 
 template<class S, class R>
-using submit_free_function_t = decltype(submit(std::declval<S&>(), std::declval<R&>()));
+using submit_free_function_t = decltype(submit(std::declval<S>(), std::declval<R>()));
 
 template<class S, class R>
 struct has_submit_free_function_impl

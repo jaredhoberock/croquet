@@ -52,6 +52,26 @@ class future
       impl_.then(detail::set_value_with_argument<std::decay_t<Receiver>>{std::move(r)});
     }
 
+    // XXX share isn't a good name for this because
+    //     std::future::share means something totally different
+    __host__ __device__
+    future share()
+    {
+      return std::move(*this);
+    }
+
+    __host__ __device__
+    auto get()
+    {
+      return impl_.get();
+    }
+
+    __host__ __device__
+    void wait()
+    {
+      return impl_.wait();
+    }
+
   private:
     agency::cuda::async_future<T> impl_;
 };

@@ -28,7 +28,7 @@ class fused_sender
     __host__ __device__
     auto submit(Receiver r) const
     {
-      detail::set_value_functor<Function, Receiver> f{function_, r};
+      detail::set_value_functor<Function, Receiver> f{function_, std::move(r)};
       return executor_.execute(std::move(f));
     }
 
@@ -37,6 +37,12 @@ class fused_sender
     Function function() const
     {
       return function_;
+    }
+
+    __host__ __device__
+    Executor executor() const
+    {
+      return executor_;
     }
     
   private:

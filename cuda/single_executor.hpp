@@ -79,7 +79,7 @@ class single_executor
     void execute(Function f) const
     {
       agency::cuda::grid_executor ex;
-      agency::async(ex, f);
+      agency::async(ex, std::move(f));
     }
 
   private:
@@ -103,6 +103,14 @@ class single_executor
         // execute the function after the future becomes ready
         agency::cuda::grid_executor ex;
         agency::detail::then_execute(ex, std::move(execute_me), future_);
+      }
+
+      __host__ __device__
+      auto share()
+      {
+        // execute the function after the future becomes ready
+        agency::cuda::grid_executor ex;
+        return agency::detail::then_execute(ex, continuation_, future_);
       }
 
       // XXX privatize these

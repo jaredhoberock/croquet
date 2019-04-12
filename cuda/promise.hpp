@@ -10,22 +10,6 @@
 
 namespace cuda
 {
-namespace detail
-{
-
-
-void promise_host_callback(void* user_data)
-{
-  std::condition_variable& cv = **reinterpret_cast<std::unique_ptr<std::condition_variable>*>(user_data);
-  
-  std::mutex mtx;
-  std::unique_lock<std::mutex> lock(mtx);
-  // XXX need to guard against spurious wakeup
-  cv.wait(lock);
-}
-
-
-} // end detail
 
 
 template<class T>
@@ -62,6 +46,9 @@ class promise
 
       // wake the host thread
       synchronization_channel_->cv.notify_all();
+
+      // the host thread will delete the channel
+      synchronization_channel_.release();
     }
 
   private:
@@ -70,11 +57,14 @@ class promise
 
     static void callback(void* user_data)
     {
-      synchronization_channel& channel = **reinterpret_cast<std::unique_ptr<synchronization_channel>*>(user_data);
+      synchronization_channel* channel = reinterpret_cast<synchronization_channel*>(user_data);
       
       std::mutex mtx;
       std::unique_lock<std::mutex> lock(mtx);
-      channel.cv.wait(lock, [&]{ return !channel.flag.test_and_set(); });
+      channel->cv.wait(lock, [=]{ return !channel->flag.test_and_set(); });
+
+      // it's our responsibility to delete the channel
+      delete channel;
     }
 
     future<T> launch_host_function(pointer& result_ptr)
@@ -93,7 +83,7 @@ class promise
       }
 
       // launch the callback
-      if(cudaError_t error = cudaLaunchHostFunc(stream, callback, &synchronization_channel_))
+      if(cudaError_t error = cudaLaunchHostFunc(stream, callback, synchronization_channel_.get()))
       {
         throw std::runtime_error("cuda::promise<T>::launch_host_function: CUDA error after cudaLaunchHostFunc: " + std::string(cudaGetErrorString(error)));
       }
@@ -135,15 +125,17 @@ class promise
 };
 
 
-// XXX can we avoid a specialization?
+// XXX can we eliminate this specialization?
 template<>
 class promise<void>
 {
   public:
     promise()
-      : cv_(std::make_unique<std::condition_variable>()),
+      : synchronization_channel_(std::make_unique<synchronization_channel>()),
         future_(launch_host_function())
     {}
+
+    promise(promise&&) = default;
 
     future<void> get_future()
     {
@@ -152,36 +144,64 @@ class promise<void>
 
     void set_value()
     {
-      cv_->notify_all();
+      // clear the flag
+      synchronization_channel_->flag.clear();
+
+      // wake the host thread
+      synchronization_channel_->cv.notify_all();
+
+      // the host thread will delete the channel
+      synchronization_channel_.release();
     }
 
   private:
+    static void callback(void* user_data)
+    {
+      synchronization_channel* channel = reinterpret_cast<synchronization_channel*>(user_data);
+      
+      std::mutex mtx;
+      std::unique_lock<std::mutex> lock(mtx);
+      channel->cv.wait(lock, [=]{ return !channel->flag.test_and_set(); });
+
+      // it's our responsibility to delete the channel
+      delete channel;
+    }
+
     future<void> launch_host_function()
     {
+      // create the asynchronous state to store the result
+      agency::cuda::detail::asynchronous_state<void> state(agency::detail::construct_not_ready);
+
+      // create a stream on which to launch the callback
       cudaStream_t stream{};
       if(cudaError_t error = cudaStreamCreate(&stream))
       {
         throw std::runtime_error("cuda::promise<void>::launch_host_function: CUDA error after launch_host_function: " + std::string(cudaGetErrorString(error)));
       }
 
-      if(cudaError_t error = cudaLaunchHostFunc(stream, detail::promise_host_callback, &cv_))
+      // launch the callback
+      if(cudaError_t error = cudaLaunchHostFunc(stream, callback, synchronization_channel_.get()))
       {
         throw std::runtime_error("cuda::promise<void>::launch_host_function: CUDA error after cudaLaunchHostFunc: " + std::string(cudaGetErrorString(error)));
       }
 
+      // create an event corresponding to the completion of the callback
       cudaEvent_t event{};
       if(cudaError_t error = cudaEventCreateWithFlags(&event, cudaEventDisableTiming))
       {
         throw std::runtime_error("cuda::promise<void>::launch_host_function: CUDA error after cudaEventCreateWithFlags: " + std::string(cudaGetErrorString(error)));
       }
 
-      future<void> result = agency::cuda::experimental::make_async_future(event);
+      // create a future
+      future<void> result = agency::cuda::experimental::detail::make_async_future(event, std::move(state));
 
+      // destroy the event
       if(cudaError_t error = cudaEventDestroy(event))
       {
         throw std::runtime_error("cuda::promise<void>::launch_host_function: CUDA error after cudaEventDestroy: " + std::string(cudaGetErrorString(error)));
       }
 
+      // destroy the stream
       if(cudaError_t error = cudaStreamDestroy(stream))
       {
         throw std::runtime_error("cuda::promise<void>::launch_host_function: CUDA error after cudaStreamDestroy: " + std::string(cudaGetErrorString(error)));
@@ -190,7 +210,13 @@ class promise<void>
       return result;
     }
 
-    std::unique_ptr<std::condition_variable> cv_;
+    struct synchronization_channel
+    {
+      std::condition_variable cv;
+      std::atomic_flag flag = ATOMIC_FLAG_INIT;
+    };
+
+    std::unique_ptr<synchronization_channel> synchronization_channel_;
     future<void> future_;
 };
 

@@ -1,4 +1,4 @@
-// $ nvcc --expt-extended-lambda -std=c++14 -I. chaining_executor_demo.cu
+// $ nvcc --expt-extended-lambda -std=c++14 -Iagency chaining_executor_demo.cu
 #include <iostream>
 #include <typeinfo>
 #include <cassert>
@@ -27,20 +27,41 @@ int main()
 
   just<chaining_executor<cuda::single_executor>> s1 = ex.schedule();
 
-  op::submit(s1, my_receiver());
-
-  auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (chaining_executor<cuda::single_executor>)
   {
-    printf("Hello world from value task\n");
-    return 0;
-  });
-
-  op::submit(std::move(s2), my_receiver());
-
-  if(cudaError_t error = cudaDeviceSynchronize())
-  {
-    throw std::runtime_error("CUDA error after cudaDeviceSynchronize: " + std::string(cudaGetErrorString(error)));
+    // test submisison on a trivial sender
+    op::submit(s1, my_receiver());
   }
+
+  {
+    // test submission on a value task
+    auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (chaining_executor<cuda::single_executor>)
+    {
+      printf("Hello world from value task\n");
+      return 0;
+    });
+
+    op::submit(std::move(s2), my_receiver());
+
+    if(cudaError_t error = cudaDeviceSynchronize())
+    {
+      throw std::runtime_error("CUDA error after cudaDeviceSynchronize: " + std::string(cudaGetErrorString(error)));
+    }
+  }
+
+  //{
+  //  // XXX this is currently not compiling
+  //
+  //  // test share on a value task
+  //  auto s2 = ex.make_value_task(std::move(s1), [] __host__ __device__ (fusing_executor<cuda::single_executor> ex)
+  //  {
+  //    printf("Hello world from value task\n");
+  //    return 13;
+  //  });
+
+  //  auto fut = op::share(std::move(s2));
+
+  //  assert(fut.get() == 13);
+  //}
 
   return 0; 
 }
