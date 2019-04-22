@@ -1,2 +1,2 @@
 # croquet
-Prototype implementation of CUDA Senders
+Prototype implementation of C++ Executors, Senders, & Receivers
