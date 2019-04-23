@@ -12,6 +12,7 @@ namespace detail
 template<class Function, class Receiver>
 struct invoke_and_set_value_receiver
 {
+  #pragma nv_exec_check_disable
   template<class... Args,
            __AGENCY_REQUIRES(
              !std::is_void<
@@ -24,6 +25,7 @@ struct invoke_and_set_value_receiver
     receiver.set_value(function(std::forward<Args>(args)...));
   }
 
+  #pragma nv_exec_check_disable
   template<class... Args,
            __AGENCY_REQUIRES(
              std::is_void<
