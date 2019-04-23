@@ -72,6 +72,12 @@ class future
       return impl_.wait();
     }
 
+    __host__ __device__
+    agency::cuda::async_future<T> to_agency_cuda_async_future() &&
+    {
+      return std::move(impl_);
+    }
+
   private:
     agency::cuda::async_future<T> impl_;
 };
