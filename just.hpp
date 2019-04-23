@@ -38,6 +38,8 @@ class just
 
     using error_type = void;
 
+    just() = default;
+
     __host__ __device__
     just(just&& other)
       : value_(std::move(other.value_))
