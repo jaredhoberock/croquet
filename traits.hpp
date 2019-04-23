@@ -1,8 +1,14 @@
 #pragma once
 
+#include <agency/execution/executor/properties/bulk_guarantee.hpp>
+
 struct sender_tag {};
 
+template<class OuterBulkGuarantee, class... InnerBulkGuarantees>
 struct bulk_sender_tag {};
+
+using grid_sender_tag = bulk_sender_tag<agency::bulk_guarantee_t::parallel_t, agency::bulk_guarantee_t::concurrent_t>;
+
 
 template<class T>
 struct sender_traits

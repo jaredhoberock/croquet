@@ -78,6 +78,13 @@ class bulk_executor
     template<class Sender, class Function, class ResultFactory, class OuterFactory, class InnerFactory>
     struct grid_sender
     {
+      using sender_concept = grid_sender_tag;
+
+      template<template<class...> class Variant, template<class...> class Tuple>
+      using value_types = Variant<Tuple<std::result_of_t<ResultFactory()>>>;
+
+      using error_type = void;
+
       Sender predecessor;
       Function f;
       shape_type shape;
