@@ -76,7 +76,7 @@ class bulk_executor
 
   private:
     template<class Sender, class Function, class ResultFactory, class OuterFactory, class InnerFactory>
-    struct bulk_sender
+    struct grid_sender
     {
       Sender predecessor;
       Function f;
@@ -120,7 +120,7 @@ class bulk_executor
 
   public:
     template<class Sender, class Function, class ResultFactory, class OuterFactory, class InnerFactory>
-    bulk_sender<Sender,Function,ResultFactory,OuterFactory,InnerFactory>
+    grid_sender<Sender,Function,ResultFactory,OuterFactory,InnerFactory>
       make_bulk_value_task(Sender predecessor, Function f, shape_type shape,
                            ResultFactory result_factory,
                            OuterFactory outer_factory,
