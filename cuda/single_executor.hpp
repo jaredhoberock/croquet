@@ -5,58 +5,13 @@
 #include <agency/execution/executor/detail/execution_functions/then_execute.hpp>
 #include <agency/detail/type_traits.hpp>
 #include "../just.hpp"
+#include "../detail/receive_invoke_result_functor.hpp"
 #include "future.hpp"
 #include "promise.hpp"
 
 
 namespace cuda
 {
-namespace detail
-{
-
-
-template<class Function, class Receiver>
-struct receive_invoke_result
-{
-  template<class... Args,
-           __AGENCY_REQUIRES(
-             !std::is_void<
-               agency::detail::result_of_t<
-                 Function(Args&&...)
-               >
-             >::value
-           )>
-  __host__ __device__
-  void operator()(Args&&... args) const
-  {
-    receiver_.set_value(function_(std::forward<Args>(args)...));
-
-    // XXX do we need to set_done?
-  }
-
-  template<class... Args,
-           __AGENCY_REQUIRES(
-             std::is_void<
-               agency::detail::result_of_t<
-                 Function(Args&&...)
-               >
-             >::value
-          )>
-  __host__ __device__
-  void operator()(Args&&... args) const
-  {
-    function_(std::forward<Args>(args)...);;
-    receiver_.set_value();
-
-    // XXX do we need to set_done?
-  }
-
-  mutable Function function_;
-  mutable Receiver receiver_;
-};
-
-
-} // end detail
 
 
 class single_executor
@@ -98,7 +53,7 @@ class single_executor
       void submit(Receiver r)
       {
         // create a function that calls the continuation and passes its result to the receiver
-        detail::receive_invoke_result<Function, Receiver> execute_me{std::move(continuation_), std::move(r)};
+        ::detail::receive_invoke_result_functor<Function, Receiver> execute_me{std::move(continuation_), std::move(r)};
 
         // execute the function after the future becomes ready
         agency::cuda::grid_executor ex;
