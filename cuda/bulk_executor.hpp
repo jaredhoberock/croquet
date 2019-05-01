@@ -6,8 +6,11 @@
 #include <agency/execution/executor/detail/execution_functions/then_execute.hpp>
 #include "../just.hpp"
 #include "../traits.hpp"
+#include "../detail/is_detected_instantiation.hpp"
 #include "../submit.hpp"
+#include "../share.hpp"
 #include "../detail/receive_arguments_functor.hpp"
+#include "../detail/requires.hpp"
 #include "future.hpp"
 #include "promise.hpp"
 
@@ -78,7 +81,7 @@ class bulk_executor
     template<class Sender, class Function, class ResultFactory, class OuterFactory, class InnerFactory>
     struct grid_sender
     {
-      using sender_concept = grid_sender_tag;
+      using sender_concept = sender_tag;
 
       template<template<class...> class Variant, template<class...> class Tuple>
       using value_types = Variant<Tuple<std::result_of_t<ResultFactory()>>>;
@@ -92,11 +95,18 @@ class bulk_executor
       OuterFactory outer_factory;
       InnerFactory inner_factory;
 
+      // XXX rather than overloading share(), it would be cleaner to require()
+      //     that the predecessor's share operation always returns cuda::future
+
       // this overload of share is for predecessors which may submit to the host
-      // XXX we need a way to inspect the Sender to see where it will be submitted
+      template<class Sender_ = Sender,
+               __CROQUET_REQUIRES(
+                 !::detail::is_detected_instantiation<future, op::share_t, Sender_>::value
+               )>
       future<std::result_of_t<ResultFactory()>> share()
       {
         // create a promise for the predecessor's result
+        // XXX we need a special case for when the predecessor is ready
         cuda::promise<sender_value_type_t<Sender>> promise;
 
         // get the future
@@ -109,9 +119,19 @@ class bulk_executor
         return agency::cuda::grid_executor{}.bulk_then_execute(f, shape, predecessor_future, result_factory, outer_factory, inner_factory);
       }
 
-      // this overload of share is for predecessors which are known to submit to the device
-      // XXX we need a way to inspect the Sender to see where it will be submitted
-      // future<std::result_of_t<ResultFactory()>> share();
+      // this overload of share is for predecessors whose share operation returns a cuda::future
+      template<class Sender_ = Sender,
+               __CROQUET_REQUIRES(
+                 ::detail::is_detected_instantiation<future, op::share_t, Sender_>::value
+               )>
+      future<std::result_of_t<ResultFactory()>> share()
+      {
+        // share the predecessor to get a future
+        auto predecessor_future = op::share(predecessor);
+
+        // bulk_then_execute on a grid_executor
+        return agency::cuda::grid_executor{}.bulk_then_execute(f, shape, predecessor_future, result_factory, outer_factory, inner_factory);
+      }
 
       template<class Receiver>
       void submit(Receiver r)
