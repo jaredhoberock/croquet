@@ -3,6 +3,7 @@
 #include <utility>
 #include <future>
 #include "detail/static_const.hpp"
+#include <agency/detail/requires.hpp>
 
 
 namespace op
@@ -40,9 +41,9 @@ template<class T>
 struct make_promise_customization_point
 {
   template<class Executor,
-           class = std::enable_if_t<
-             has_make_promise_member<const Executor&,T>::value
-           >>
+           __AGENCY_REQUIRES(
+             detail::has_make_promise_member<const Executor&,T>::value
+           )>
   auto operator()(const Executor& executor) const ->
     decltype(executor.template make_promise<T>())
   {
@@ -54,9 +55,9 @@ struct make_promise_customization_point
   // by default, return a std::promise<T>
   // XXX probably need to constrain Executor to have mapping.thread or some sort of strong fwd progress
   template<class Executor,
-           class = std::enable_if_t<
-             !detail::has_make_promise_member<const Executor&,T>::vaslue
-           >>
+           __AGENCY_REQUIRES(
+             !detail::has_make_promise_member<const Executor&,T>::value
+           )>
   std::promise<T> operator()(const Executor&) const
   {
     return std::promise<T>();
