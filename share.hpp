@@ -119,5 +119,9 @@ const __device__ detail::share_customization_point share;
 } // end anonymous namespace
 
 
+template<class Sender>
+using share_t = decltype(op::share(std::declval<Sender>()));
+
+
 } // end namespace op
 
